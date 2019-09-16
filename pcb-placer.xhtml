@@ -2,7 +2,7 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="de">
  <head>
-   <title>PCB manual placement helper for EAGLE .brd files - (c) 2015-2017 by mark@makr.zone</title>
+   <title>SMD placement helper for EAGLE .brd files - (c) 2017 by mark@makr.zone</title>
    <style type="text/css">
    <![CDATA[
    .pcb {
@@ -79,14 +79,14 @@
    ]]>
    </style>
 
-   <script src="jquery-3.2.1.min.js"></script>
+   <script src="jquery-3.4.1.min.js"></script>
    <script > 
    <![CDATA[
      
      // sets the priority prefixes and their sort order (others are sorted alphabetically)
      var priorityPrefixes = [ 'R', 'C', 'D', 'L', 'D', 'Q', 'IC' ].reverse();
      // attributes to be considered
-     var groupingAttributes = [ 'precision', 'voltage', 'esr' ];
+     var groupingAttributes = [ 'precision', 'voltage', 'esr', 'b' ];
                  
      function cssTransform(elem){ 
        // convert a .brd rot attribute to a css transform directive
@@ -141,12 +141,33 @@
        }
        return css;
      }      
+ 
+     var entityMap = {
+       '&': '&amp;',
+       '<': '&lt;',
+       '>': '&gt;',
+       '"': '&quot;',
+       "'": '&#39;',
+       '/': '&#x2F;',
+       '`': '&#x60;',
+       '=': '&#x3D;'
+       };
+
+     function escapeHtml (string) {
+       return String(string).replace(/[&<>"'`=\/]/g, function (s) {
+         return entityMap[s];
+       });
+     }
      
      $(document).ready(function() {
        $.ajax({
         url: "board.brd",
         dataType: "xml"
-      }).done(function( data ) {
+      })
+      .fail(function(xhr, ajaxOptions, thrownError) {
+          alert(thrownError);
+      })
+      .done(function( data ) {
           var pcb = $('#pcb');
           var partslist = $('#partslist');
           var allClasses = [];
@@ -261,15 +282,15 @@
               //console.log(props);
               
               if (x1 > x0) {
-                elemCode += '<div class="part'+(mirrored ? ' mirrored' : '')+'" title="'+name+': '+classes+'"'
+                elemCode += '<div class="part'+(mirrored ? ' mirrored' : '')+'" title="'+name+': '+escapeHtml(classes)+'"'
                   +' style="position: absolute; left:'+x0.toString()+'mm; bottom:'+y0.toString()+'mm; width:'+(x1-x0).toString()+'mm; height:'+(y1-y0).toString()+'mm;"></div>';
-                var classesCode = '_'+encodeURI(classes.replace(/ /g, '__')).replace('%', '--').replace('%', '--').replace('.', '_').replace(',', '_').replace('/', '_').replace(':', '_').replace(':', '_');
+                var classesCode = '_'+encodeURI(classes.replace(/ /g, '__')).replace(/%/g, '--').replace(/[.,/:]/g, '_').replace(/[^a-z0-9.]/g, '');
                 if (! mirrored) {
                   allClasses[classesCode] = props;
                 }
                 elemCode = elemCode .replace('class="element"', 'class="element '+classesCode+'"')
               }
-              elemCode += '</div>';                           
+              elemCode += '</div>';      
               pcb.append(elemCode);
             });
           });
@@ -322,7 +343,7 @@
           li.append('<td class="numeric">'+index+'</td>'
             +'<td>'+element.prefix+'</td>'
             +'<td>'+element.package+'</td>'
-            +'<td'+(isNaN(element.value) ? '' : ' class="numeric"')+'>'+element.valstr+'</td>'
+            +'<td'+(isNaN(element.value) ? '' : ' class="numeric"')+'>'+escapeHtml(element.valstr)+'</td>'
             +'<td>'+Object.keys(element.attrs).map(function (key) { return element.attrs[key]; }).join(' ')+'</td>'
             +'<td>'+ids.join(', ')+'</td>'
             +'<td class="numeric">'+ids.length+'</td>');
